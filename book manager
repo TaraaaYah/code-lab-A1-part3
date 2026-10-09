@@ -1,0 +1,213 @@
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <limits>
+using namespace std;
+
+// Book class
+class Book {
+private:
+    string title, author, id;
+    int pages;
+    bool available;
+
+public:
+    // Constructor
+    Book(string t, string a, int p, string i, bool av) {
+        title = t;
+        author = a;
+        pages = p;
+        id = i;
+        available = av;
+    }
+
+    // Getter methods
+    string getTitle() const { return title; }
+    string getAuthor() const { return author; }
+    int getPages() const { return pages; }
+    string getID() const { return id; }
+    bool isAvailable() const { return available; }
+
+    // Display book details
+    void display() const {
+        cout << "\nTitle: " << title
+             << "\nAuthor: " << author
+             << "\nPages: " << pages
+             << "\nBook ID: " << id
+             << "\nStatus: "
+             << (available ? "Available" : "Borrowed")
+             << "\n";
+    }
+
+    // Borrow a book
+    void borrowBook() {
+        if (available) {
+            available = false;
+            cout << "Book borrowed successfully!\n";
+        } else {
+            cout << "Sorry, this book is already borrowed.\n";
+        }
+    }
+
+    // Return a book
+    void returnBook() {
+        if (!available) {
+            available = true;
+            cout << "Book returned successfully!\n";
+        } else {
+            cout << "This book is already available.\n";
+        }
+    }
+};
+
+// Read books from bookData.txt
+vector<Book> loadBooks() {
+    vector<Book> books;
+    ifstream file("bookData.txt");
+    string line;
+
+    if (!file) {
+        cout << "Error: Cannot open bookData.txt\n";
+        return books;
+    }
+
+    while (getline(file, line)) {
+        string title, author, pageText, id, status;
+        stringstream ss(line);
+
+        if (getline(ss, title, ',') &&
+            getline(ss, author, ',') &&
+            getline(ss, pageText, ',') &&
+            getline(ss, id, ',') &&
+            getline(ss, status)) {
+            try {
+                size_t pos = 0;
+                int pages = stoi(pageText, &pos);
+
+                if (pos != pageText.size() || pages <= 0 ||
+                    (status != "true" && status != "false"))
+                    continue;
+
+                books.push_back(
+                    Book(title, author, pages, id, status == "true")
+                );
+            } catch (...) {
+                cout << "Skipping invalid book record.\n";
+            }
+        }
+    }
+
+    return books;
+}
+
+// Save updated book information
+bool saveBooks(const vector<Book>& books) {
+    ofstream file("bookData.txt");
+
+    if (!file) {
+        cout << "Error: Cannot save book data.\n";
+        return false;
+    }
+
+    for (const Book& book : books) {
+        file << book.getTitle() << ","
+             << book.getAuthor() << ","
+             << book.getPages() << ","
+             << book.getID() << ","
+             << (book.isAvailable() ? "true" : "false")
+             << "\n";
+    }
+
+    file.close();
+    return file.good();
+}
+
+// Search for a book using its ID
+int findBookByID(const vector<Book>& books, string id) {
+    for (size_t i = 0; i < books.size(); i++) {
+        if (books[i].getID() == id)
+            return static_cast<int>(i);
+    }
+    return -1;
+}
+
+// Main program
+int main() {
+    vector<Book> books = loadBooks();
+
+    if (books.empty()) {
+        cout << "No books loaded. Check bookData.txt.\n";
+        return 1;
+    }
+
+    int choice = 0;
+    string id;
+
+    do {
+        cout << "\n===== BOOK MANAGER =====\n";
+        cout << "1. View all books\n";
+        cout << "2. Search book by ID\n";
+        cout << "3. Borrow book by ID\n";
+        cout << "4. Return book by ID\n";
+        cout << "5. Quit\n";
+        cout << "Enter your choice: ";
+
+        if (!(cin >> choice)) {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "Invalid input. Enter a number.\n";
+            continue;
+        }
+
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+        switch (choice) {
+        case 1:
+            for (const Book& book : books) {
+                book.display();
+                cout << "-------------------\n";
+            }
+            break;
+
+        case 2:
+        case 3:
+        case 4: {
+            cout << "Enter book ID (e.g. 001): ";
+            getline(cin, id);
+
+            int index = findBookByID(books, id);
+
+            if (index == -1) {
+                cout << "Book ID not found.\n";
+                break;
+            }
+
+            if (choice == 2) {
+                books[index].display();
+            } else if (choice == 3) {
+                books[index].borrowBook();
+                if (!saveBooks(books))
+                    cout << "Warning: Could not save changes.\n";
+            } else {
+                books[index].returnBook();
+                if (!saveBooks(books))
+                    cout << "Warning: Could not save changes.\n";
+            }
+            break;
+        }
+
+        case 5:
+            cout << "Goodbye!\n";
+            break;
+
+        default:
+            cout << "Invalid choice. Try again.\n";
+        }
+
+    } while (choice != 5);
+
+    return 0;
+}
